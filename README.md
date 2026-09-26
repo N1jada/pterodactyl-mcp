@@ -60,6 +60,7 @@ Things you can ask:
 - [Console caveats](#console-caveats)
 - [Known limitations](#known-limitations--open-questions)
 - [Development](#development)
+- [Acknowledgements](#acknowledgements)
 
 ## Quick start
 
@@ -698,6 +699,20 @@ function, called once from `src/index.ts`.
    `test/tools/servers.test.ts` for the pattern) — no network in tests.
 9. Exercise the new tool at least once with `npm run inspector`, and add it to the
    tables in this README.
+
+## Acknowledgements
+
+- [Pterodactyl Panel](https://github.com/pterodactyl/panel) and
+  [Wings](https://github.com/pterodactyl/wings), whose open source code was the reference
+  for every API call and websocket message this server makes.
+- The [Model Context Protocol](https://modelcontextprotocol.io) project, for the
+  [TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) and
+  [MCP Inspector](https://github.com/modelcontextprotocol/inspector).
+- The community-maintained Client API docs at [pteroapi.com](https://pteroapi.com) and
+  [pterodactyl-api-docs.netvpx.com](https://pterodactyl-api-docs.netvpx.com), which were
+  a great starting point.
+- Built on [zod](https://github.com/colinhacks/zod), [ws](https://github.com/websockets/ws)
+  and [minimatch](https://github.com/isaacs/minimatch).
 
 ## License
 
