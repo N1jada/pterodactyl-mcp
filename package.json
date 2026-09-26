@@ -4,6 +4,7 @@
   "description": "MCP server exposing a Pterodactyl Panel game server (Client API) as tools, with belt-and-braces safety guards",
   "type": "module",
   "license": "MIT",
+  "author": "N1jada",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/N1jada/pterodactyl-mcp.git"
@@ -20,7 +21,8 @@
     "dist",
     "README.md",
     ".env.example",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=22"

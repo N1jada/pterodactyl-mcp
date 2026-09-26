@@ -1,61 +1,110 @@
 # pterodactyl-mcp
 
-An MCP (Model Context Protocol) server that exposes a Pterodactyl Panel-hosted
-game server's Client API as tools, so an agent can inspect, diagnose and (optionally)
-operate the server conversationally — checking status, reading console/log output,
-editing files, taking backups, and power-cycling the process. It is deliberately
-generic: point it at any Pterodactyl panel and server via configuration, no code
-changes required.
+[![CI](https://github.com/N1jada/pterodactyl-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/N1jada/pterodactyl-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Node.js >= 22](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
+![MCP](https://img.shields.io/badge/MCP-stdio-purple)
 
-**Framing.** The guardrails described below (read-only mode, protected paths,
-confirmation tokens, auto-backup, cooldowns, audit log) are protection against
-*mistakes* — an agent misreading a situation, acting on a stale assumption, or
-over-interpreting a vague instruction. They are **not** a security boundary: anyone
-holding the Pterodactyl API key used to run this server can do everything it does,
-directly through the panel UI, regardless of these guards. Design your deployment
-(see [Registering with Claude Code](#registering-with-claude-code)) around that
-threat model, not around a hostile operator.
+**Let an AI assistant look after your game server — safely.**
 
-## Requirements
+`pterodactyl-mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server
+that connects Claude (or any MCP client) to a server hosted on
+[Pterodactyl Panel](https://pterodactyl.io). Ask about the server in plain language and
+the assistant can check its status, read the console and log files, edit configs, take
+backups and restart it — with guardrails that stop a confused model from deleting your
+world.
 
-- Node.js **≥ 22** (uses the global `WebSocket` runtime and native `fetch`)
-- A Pterodactyl panel and a **Client** API key for an account with access to at
-  least one server on it
+It works with any Pterodactyl panel — self-hosted or a commercial host — using an
+ordinary **Client API key** from your account page. No panel admin access or plugins
+required.
 
-## Install, build, test
+Things you can ask:
+
+- *"Is the server up, and what's the memory doing?"*
+- *"Something's wrong — pull the recent console output and tell me what's failing."*
+- *"Did Geyser actually bind to its Bedrock port on the last boot?"*
+- *"Take a backup, then change the Bedrock MOTD in the Geyser config."*
+- *"Upload this plugin jar and restart the server."*
+
+## Features
+
+- **20 tools** covering servers, live resources, console, files (including binary
+  uploads), power, backups, schedules, network allocations and startup variables.
+- **Read-only mode** for day-to-day diagnosis — register a second, write-enabled
+  profile only for maintenance.
+- **Human confirmation** before anything destructive, via MCP elicitation when your
+  client supports it, or a single-use preview-and-confirm token when it doesn't.
+- **Automatic backup** before file writes, deletes and `kill` — and the change is
+  aborted if the backup fails.
+- **Protected paths** (world folders, `server.properties`, `ops.json`, … by default)
+  that write and delete tools refuse to touch.
+- **Blast-radius limits** — per-process mutation budget, 10-file bulk-delete cap,
+  30-second power cooldown.
+- **Append-only audit log** of every attempted, refused and completed change, with
+  secrets redacted.
+- **Console-aware** — reads the Wings websocket, and tells the model to use
+  `logs/latest.log` when the output it wants has already scrolled out of the buffer.
+
+> **These guards protect against mistakes, not attackers.** Anyone holding the API key
+> can do everything this server does directly in the panel. See
+> [How mutations work](#how-mutations-work) for the full safety model.
+
+## Contents
+
+- [Quick start](#quick-start)
+- [Generating a Pterodactyl Client API key](#generating-a-pterodactyl-client-api-key)
+- [Configuration](#configuration)
+- [Registering with Claude Code](#registering-with-claude-code) (and Claude Desktop)
+- [Tools](#tools)
+- [How mutations work](#how-mutations-work)
+- [Console caveats](#console-caveats)
+- [Known limitations](#known-limitations--open-questions)
+- [Development](#development)
+
+## Quick start
+
+You need **Node.js 22 or newer** and a Pterodactyl **Client** API key
+([how to get one](#generating-a-pterodactyl-client-api-key)).
+
+**1. Build it**
 
 ```bash
+git clone https://github.com/N1jada/pterodactyl-mcp.git
+cd pterodactyl-mcp
 npm install
-npm run build      # tsc -> dist/, chmod +x dist/index.js
-npm test           # vitest run — unit tests, no network
+npm run build
 ```
 
-## Try it with MCP Inspector
+**2. Find your server's short ID** — it's the 8-character code in the panel URL when
+you open the server, e.g. `https://panel.example.com/server/1a2b3c4d`.
+
+**3. Register it with Claude Code** as a read-only profile (the safe default):
 
 ```bash
-npm run inspector   # npx @modelcontextprotocol/inspector node dist/index.js
-```
-
-This opens the Inspector UI against the built server. Set the required env vars
-(`PTERODACTYL_PANEL_URL`, `PTERODACTYL_API_KEY`, ...) in the Inspector's connection
-form, or export them in your shell first — see [Configuration](#configuration).
-
-For scripted checks use the Inspector CLI. Env vars must be passed with `-e` after the
-command (they are not inherited), and array/boolean arguments need `--tool-args-json`:
-
-```bash
-npx --yes @modelcontextprotocol/inspector --cli node dist/index.js \
-  -e PTERODACTYL_PANEL_URL=https://panel.example -e PTERODACTYL_API_KEY=ptlc_... \
+claude mcp add pterodactyl-ro \
+  -e PTERODACTYL_PANEL_URL=https://panel.example.com \
+  -e PTERODACTYL_API_KEY=ptlc_your_key_here \
   -e PTERODACTYL_DEFAULT_SERVER=1a2b3c4d \
-  --method tools/call --tool-name ptero_list_files \
-  --tool-args-json '{"directory":"/plugins"}' --format json
+  -e PTERODACTYL_READ_ONLY=true \
+  -- node "$(pwd)/dist/index.js"
 ```
 
-Each `--cli` invocation starts a fresh server process, so confirmation tokens, the
-mutation budget and the power cooldown reset between calls. Two-phase flows therefore
-need one long-lived process; `scripts/inspector-smoke.sh` shows how, and runs every tool
-against the mock panel in `test/mock-panel/`. Results of that run are in
-`docs/INSPECTOR_RESULTS.md`.
+Then ask Claude *"What's the status of my server?"*. When you're ready to let it make
+changes, add the [maintenance profile](#registering-with-claude-code) too. Using
+Claude Desktop or another client? See [Claude Desktop](#claude-desktop) — any MCP
+client that can launch a stdio server works.
+
+**Want to try it without a real server?** A mock panel is included:
+
+```bash
+node test/mock-panel/server.mjs 4567 &    # fake panel on http://127.0.0.1:4567
+npx @modelcontextprotocol/inspector --cli node dist/index.js \
+  -e PTERODACTYL_PANEL_URL=http://127.0.0.1:4567 -e PTERODACTYL_API_KEY=mock-key \
+  -e PTERODACTYL_DEFAULT_SERVER=1a2b3c4d \
+  --method tools/call --tool-name ptero_get_server_resources
+```
+
+Or point any profile above at `http://127.0.0.1:4567` with the key `mock-key`.
 
 ## Generating a Pterodactyl Client API key
 
@@ -244,28 +293,27 @@ is a closed, known system.
 | `ptero_list_allocations` | List network allocations (ports) assigned to the server. | true | false | true | false | — (read-only) |
 | `ptero_get_startup_variables` | Startup command template and egg (environment) variables. | true | false | true | false | — (read-only) |
 
-Annotation values above (readOnly/destructive/idempotent/openWorld) are taken
-verbatim from `docs/ARCHITECTURE.md`'s annotation table, the shared contract every
-phase is built against, and have been cross-checked directly against every
-`mcp.registerTool(...)` call in `src/tools/*.ts` — table and source agree.
+The annotation columns match the `registerTool(...)` calls in `src/tools/*.ts`; a
+structural test (`test/integration/guard-coverage.test.ts`) fails if a mutating tool
+is ever registered without going through the guard.
 
 ### Tool parameters
 
 Every input parameter for every registered tool, verified against
-`src/tools/*.ts`, grouped by the phase each file implements. `server` (short
+`src/tools/*.ts`, grouped by source file. `server` (short
 identifier, optional, falls back to `PTERODACTYL_DEFAULT_SERVER`) is omitted
 below since every tool takes it identically. For a mutating tool, "Guard" gives
 the `MutationRequest` fields it sets — `kind`, `destructive`, `wantsAutoBackup`,
 and any `paths`/`fileCount`/`powerSignal` — which drive the guard decisions
 summarised in the table above.
 
-#### Phase 1 — servers (`src/tools/servers.ts`)
+#### Servers (`src/tools/servers.ts`)
 
 - **`ptero_list_servers`**: `page` (integer ≥ 1, optional) — 1-based page number; omit for page 1.
 - **`ptero_get_server`**: no parameters beyond `server`.
 - **`ptero_get_server_resources`**: no parameters beyond `server`.
 
-#### Phase 2 — console (`src/tools/console.ts`)
+#### Console (`src/tools/console.ts`)
 
 - **`ptero_get_console_log`**:
   - `window_seconds` (integer 1-60, default `5`) — collection window.
@@ -276,7 +324,7 @@ summarised in the table above.
   - `dry_run` (boolean, default `false`).
   - Guard: `kind: 'command'`, `destructive: false`, `wantsAutoBackup: false`, no `paths`. Note: its *annotations* declare `destructiveHint: true`, but the guard's own `destructive` flag is `false` — so, unlike every other tool where the two agree, this one dispatches with no confirmation prompt and no auto-backup despite the advisory hint.
 
-#### Phase 3 — files (`src/tools/files.ts`)
+#### Files (`src/tools/files.ts`)
 
 - **`ptero_list_files`**: `directory` (string, default `/`).
 - **`ptero_read_file`**:
@@ -316,7 +364,7 @@ summarised in the table above.
   - `confirmation_token` (string, optional).
   - Guard: `kind: 'delete'`, `paths` = every resolved target, `fileCount: files.length`, `destructive: true`, `wantsAutoBackup: true`.
 
-#### Phase 4 — power (`src/tools/power.ts`)
+#### Power (`src/tools/power.ts`)
 
 - **`ptero_set_power_state`**:
   - `signal` (enum `start | stop | restart | kill`, required).
@@ -325,7 +373,7 @@ summarised in the table above.
   - `wait_seconds` (integer 0-60, default `0`) — poll every 2s after dispatch and report `state_after`.
   - Guard: `kind: 'power'`, `powerSignal: signal`, `destructive` = `signal !== 'start'`, `wantsAutoBackup` = `signal === 'kill'`, no `paths`.
 
-#### Phase 5 — backups (`src/tools/backups.ts`)
+#### Backups (`src/tools/backups.ts`)
 
 - **`ptero_list_backups`**: `per_page` (integer 1-50, optional; the panel's own default is 20).
 - **`ptero_create_backup`**:
@@ -341,7 +389,7 @@ summarised in the table above.
   - Guard: `kind: 'backup_delete'`, `destructive: true`, `wantsAutoBackup: false`, no `paths`.
 - **`ptero_get_backup_download_url`**: `backup_uuid` (string, required). Not a mutating tool — it does not go through the guard or the audit log at all (see [How mutations work](#how-mutations-work)).
 
-#### Phase 5 — misc (`src/tools/misc.ts`)
+#### Schedules, allocations & startup (`src/tools/misc.ts`)
 
 - **`ptero_list_schedules`**: no parameters beyond `server`.
 - **`ptero_list_allocations`**: no parameters beyond `server`.
@@ -549,6 +597,49 @@ that matter when using `ptero_get_console_log` / `ptero_send_console_command`:
 
 ## Development
 
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+```bash
+npm install
+npm run build        # tsc -> dist/
+npm test             # vitest — unit + integration tests, no network
+npm run typecheck
+```
+
+### Testing with MCP Inspector
+
+```bash
+npm run inspector    # npx @modelcontextprotocol/inspector node dist/index.js
+```
+
+This opens the Inspector UI against the built server. Set the required env vars
+(`PTERODACTYL_PANEL_URL`, `PTERODACTYL_API_KEY`, ...) in the Inspector's connection
+form, or export them in your shell first.
+
+For scripted checks use the Inspector CLI. Env vars must be passed with `-e` after the
+command (they are not inherited), and array/boolean arguments need `--tool-args-json`:
+
+```bash
+npx --yes @modelcontextprotocol/inspector --cli node dist/index.js \
+  -e PTERODACTYL_PANEL_URL=https://panel.example.com -e PTERODACTYL_API_KEY=ptlc_... \
+  -e PTERODACTYL_DEFAULT_SERVER=1a2b3c4d \
+  --method tools/call --tool-name ptero_list_files \
+  --tool-args-json '{"directory":"/plugins"}' --format json
+```
+
+Each `--cli` invocation starts a fresh server process, so confirmation tokens, the
+mutation budget and the power cooldown reset between calls. Two-phase flows therefore
+need one long-lived process; `scripts/inspector-smoke.sh` (needs `jq`) shows how, and
+runs every tool end to end against the mock panel in `test/mock-panel/`. Results of
+that run are in `docs/INSPECTOR_RESULTS.md`.
+
+### Design docs
+
+- [`docs/SPEC.md`](docs/SPEC.md) — the original requirements and safety model.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — module layout and shared contracts.
+- [`docs/pterodactyl-api.md`](docs/pterodactyl-api.md) — the Client API and Wings
+  websocket behaviour this server relies on.
+
 ### Layout
 
 ```
@@ -577,7 +668,7 @@ evals/
 ```
 
 Each `src/tools/*.ts` file exports exactly one `registerXxxTools(ctx: ToolContext)`
-function, called once from `src/index.ts`. No file edits another phase's file.
+function, called once from `src/index.ts`.
 
 ### Adding a tool
 
@@ -607,3 +698,7 @@ function, called once from `src/index.ts`. No file edits another phase's file.
    `test/tools/servers.test.ts` for the pattern) — no network in tests.
 9. Exercise the new tool at least once with `npm run inspector`, and add it to the
    tables in this README.
+
+## License
+
+[MIT](LICENSE). Not affiliated with or endorsed by the Pterodactyl project.

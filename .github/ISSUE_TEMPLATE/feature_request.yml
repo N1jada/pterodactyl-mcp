@@ -1,0 +1,21 @@
+name: Feature request
+description: Suggest a new tool or improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The task you'd like the assistant to be able to do, in your own words.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: A new tool, a new parameter, a change to a guardrail — whatever you have in mind.
+  - type: textarea
+    id: api
+    attributes:
+      label: Pterodactyl API endpoint(s)
+      description: If you know which Client API endpoint this needs, link or name it here.

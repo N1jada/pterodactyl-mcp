@@ -1,0 +1,49 @@
+name: Bug report
+description: Something isn't working as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! **Never paste your API key**, panel credentials, or signed
+        URLs into an issue — redact them first.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you ask the assistant to do, which tool was called, and what went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Tool output or error message
+      description: The tool's response, and any stderr output from the server (redacted).
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: pterodactyl-mcp version or commit
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: MCP client
+      placeholder: e.g. Claude Code 2.x, Claude Desktop, MCP Inspector
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      placeholder: e.g. 22.20.0
+  - type: input
+    id: panel
+    attributes:
+      label: Panel / host
+      description: Pterodactyl version if you know it, and whether it's self-hosted or a commercial host.
