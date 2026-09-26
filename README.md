@@ -26,6 +26,8 @@ Things you can ask:
 - *"Take a backup, then change the Bedrock MOTD in the Geyser config."*
 - *"Upload this plugin jar and restart the server."*
 
+More examples, with what happens behind the scenes: **[docs/USE_CASES.md](docs/USE_CASES.md)**.
+
 ## Features
 
 - **20 tools** covering servers, live resources, console, files (including binary
