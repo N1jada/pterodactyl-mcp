@@ -1,0 +1,59 @@
+<!--
+  pterodactyl-mcp evaluation set (mcp-builder Phase 4 format).
+
+  All 10 questions are read-only diagnostic tasks against the bundled mock panel, so the
+  answers are stable and anyone can reproduce them without a real server:
+
+    node test/mock-panel/server.mjs 4567          # prints MOCK_PANEL_URL=http://127.0.0.1:4567
+    PTERODACTYL_PANEL_URL=http://127.0.0.1:4567 \
+    PTERODACTYL_API_KEY=mock-key \
+    PTERODACTYL_DEFAULT_SERVER=1a2b3c4d \
+    PTERODACTYL_READ_ONLY=true \
+      node dist/index.js
+
+  Mock fixture: one server 1a2b3c4d "Survival" (Paper + Geyser/Floodgate), allocations
+  203.0.113.10:25565 (Java, primary) and 203.0.113.10:19132 (Geyser/Bedrock).
+  The mock panel keeps state in memory, so start a fresh instance before grading.
+-->
+<evaluation>
+   <qa_pair>
+      <question>On server 1a2b3c4d, read the Geyser configuration file at plugins/Geyser-Spigot/config.yml. What port number is the Bedrock listener bound to?</question>
+      <answer>19132</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>On server 1a2b3c4d, which network allocation is marked as the default (primary) one? Answer in the form ip:port.</question>
+      <answer>203.0.113.10:25565</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Using ptero_get_server on server 1a2b3c4d, what is the server's configured memory limit, in MiB?</question>
+      <answer>8192</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>List the contents of the plugins/ directory on server 1a2b3c4d. Is the Floodgate plugin installed? Answer Yes or No.</question>
+      <answer>Yes</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Using ptero_get_server_resources, what is the current power state of server 1a2b3c4d? Answer with the exact state string (e.g. running, offline, starting, stopping).</question>
+      <answer>running</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Using ptero_get_startup_variables (or the invocation field from ptero_get_server) for server 1a2b3c4d, what is the resolved startup command?</question>
+      <answer>java -Xms128M -Xmx7168M -jar paper.jar</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>How many backups currently exist for server 1a2b3c4d, and what is the server's backup limit? Answer as "count of limit".</question>
+      <answer>2 of 5</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Does server 1a2b3c4d have any schedule configured? If yes, give the schedule's name exactly as it appears; if none exists, answer None.</question>
+      <answer>Nightly restart</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Read plugins/Geyser-Spigot/config.yml on server 1a2b3c4d. What is the value of the motd2 setting under the bedrock section?</question>
+      <answer>Bedrock welcome</answer>
+   </qa_pair>
+   <qa_pair>
+      <question>Read logs/latest.log on server 1a2b3c4d and find the bootstrap line reporting the Java runtime version the server started with. Give the version number only (e.g. 17.0.9), not the full log line.</question>
+      <answer>21.0.4</answer>
+   </qa_pair>
+</evaluation>
