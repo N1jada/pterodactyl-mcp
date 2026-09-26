@@ -230,6 +230,20 @@ The assistant lists the server's allocations and tells you which one is the defa
 
 ---
 
+## Reports
+
+### "What happened this week?"
+*As a busy owner, I want a one-page summary of the server's week without reading logs.*
+
+> **You:** Create an activity report for the last 7 days, as an artifact.
+
+The assistant gathers uptime, restarts, crashes, player activity, errors, backups,
+schedules and recent file changes, then builds a visual report with a health verdict and a
+short list of things worth your attention. For the full, ready-to-paste prompt, see
+[PROMPTS.md](PROMPTS.md#server-activity-report--what-happened-this-day--week--month).
+
+---
+
 ## Staying in control
 
 ### Everyday mode is read-only

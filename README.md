@@ -27,6 +27,7 @@ Things you can ask:
 - *"Upload this plugin jar and restart the server."*
 
 More examples, with what happens behind the scenes: **[docs/USE_CASES.md](docs/USE_CASES.md)**.
+Ready-to-paste prompts, including a daily/weekly/monthly activity report: **[docs/PROMPTS.md](docs/PROMPTS.md)**.
 
 ## Features
 
